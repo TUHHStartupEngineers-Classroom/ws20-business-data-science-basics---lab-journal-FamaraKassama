@@ -414,7 +414,7 @@ div.tocify {
 <p>This is an <code>.Rmd</code> file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a # in front of your text, it will create a top level-header.</p>
 <div id="my-first-post" class="section level1">
 <h1><span class="header-section-number">1</span> My first post</h1>
-<p>Last compiled: 2020-12-06</p>
+<p>Last compiled: 2020-12-18</p>
 <p>Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left.</p>
 <div id="second-level-header" class="section level2">
 <h2><span class="header-section-number">1.1</span> Second level header</h2>
@@ -427,7 +427,7 @@ div.tocify {
 </div>
 <div id="my-second-post-note-the-order" class="section level1">
 <h1><span class="header-section-number">2</span> My second post (note the order)</h1>
-<p>Last compiled: 2020-12-06</p>
+<p>Last compiled: 2020-12-18</p>
 <p>I’m writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom</p>
 </div>
 <div id="adding-r-stuff" class="section level1">
@@ -444,11 +444,11 @@ library(readxl)
 
 # 2.0 Importing Files ----
 # A good convention is to use the file name and suffix it with tbl for the data structure tibble
-bikes_tbl      &lt;- read_excel(path = &quot;DS_101/00_data/01_bike_sales/01_raw_data/bikes.xlsx&quot;)
-orderlines_tbl &lt;- read_excel(&quot;DS_101/00_data/01_bike_sales/01_raw_data/orderlines.xlsx&quot;)
+bikes_tbl      &lt;- read_excel(path = &quot;docs/DS_101/00_data/01_bike_sales/01_raw_data/bikes.xlsx&quot;)
+orderlines_tbl &lt;- read_excel(&quot;docs/DS_101/00_data/01_bike_sales/01_raw_data/orderlines.xlsx&quot;)
 
 # Not necessary for this analysis, but for the sake of completeness
-bikeshops_tbl  &lt;- read_excel(&quot;DS_101/00_data/01_bike_sales/01_raw_data/bikeshops.xlsx&quot;)
+bikeshops_tbl  &lt;- read_excel(&quot;docs/DS_101/00_data/01_bike_sales/01_raw_data/bikeshops.xlsx&quot;)
 
 # 3.0 Examining Data ----
 
@@ -668,7 +668,104 @@ sales_by_year_cat_1_tbl %&gt;%
     fill = &quot;State&quot; # Changes the legend name
   )</code></pre>
 <p><img src="journal_files/figure-html/unnamed-chunk-1-2.png" width="672" /></p>
-<p>When you knit this R Markdown document, you will see that the histogram is printed to the page, along with the R code. This document can be set up to hide the R code in the webpage, just delete the comment (hashtag) from the cold folding option in the yaml header up top. For purposes of letting yourself see the code, and me see the code, best to keep it the way that it is. You’ll learn that all of these things and more can be customized in each R code block.</p>
+<pre class="r"><code># WEBSCRAPING ----
+
+# 1.0 LIBRARIES ----
+
+library(tidyverse) # Main Package - Loads dplyr, purrr, etc.
+library(rvest)     # HTML Hacking &amp; Web Scraping
+library(xopen)     # Quickly opening URLs
+library(jsonlite)  # converts JSON files to R objects
+library(glue)      # concatenate strings
+library(stringi)   # character string/text processing
+library(R.utils)
+# 1.1 COLLECT PRODUCT FAMILIES ----
+product_categories &lt;- c(&quot;Cakes-Biscuits&quot;, &quot;Candys&quot;, &quot;Christmas&quot;, &quot;Cornflakes-Cereals-USA&quot;, &quot;Drinks&quot;, &quot;Schokolade&quot;, &quot;Snacks&quot;, &quot;Harry-Potter&quot;, &quot;Sour-Patch&quot;, &quot;Twizzlers&quot;, &quot;Sonderangebote&quot;)
+
+candy_product_list &lt;- data.frame(Title = character(), Price = character())
+
+for(k in 1:length(product_categories)) {
+  
+  
+  
+  
+  for(i in 1:30) {
+    
+    url_home          &lt;- paste(&quot;https://house-of-sweets.com/&quot;,product_categories[k],&quot;_s&quot;,toString(i),sep=&quot;&quot;)
+    
+    # Read in the HTML for the entire webpage
+    html_home         &lt;- read_html(url_home)
+    
+    # 1.2 COLLECT PRODUCT CATEGORIES ----
+    
+    # Combine all Ids to one string so that we will get all nodes at once
+    # (seperated by the OR operator &quot;,&quot;)
+    
+    # Extract the urls from the href attribute
+    candy_product_list_content &lt;- html_home %&gt;%
+      # Select nodes by the ids
+      html_nodes(css = &quot;#content&quot;) %&gt;%
+      html_nodes(css = &quot;#product-list&quot;)
+    
+    candy_price_table &lt;- candy_product_list_content %&gt;%
+      html_nodes(css = &quot;.price_wrapper&quot;) 
+    
+    empty &lt;- c(0)
+    priceList &lt;- c(0)
+    
+    for (j in 1:length(candy_price_table)) {
+      if(is_empty(candy_price_table[j] %&gt;% html_nodes(css=&quot;.price&quot;))) {
+        #priceList[j] = &quot;0,00 €&quot;
+        empty &lt;- c(empty,j)
+        #candy_price_table[j] &lt;- paste(candy_price_table[j],&quot;&lt;strong class=\&quot;price\&quot;&gt;
+        #           &lt;span&gt;0,00 €&lt;/span&gt;
+        #                               &lt;span class=\&quot;footnote-reference\&quot;&gt;*&lt;/span&gt;                &lt;/strong&gt;&quot;,sep=&quot; &quot;)
+      } else {
+        #value &lt;- candy_price_table[j] %&gt;%
+        #   html_nodes(css=&quot;.price&quot;) %&gt;%
+        #  html_text()
+        #priceList[j] = value
+      }
+    }
+    
+    empty &lt;- empty[-1]
+    
+    candy_price_table &lt;- candy_price_table %&gt;%
+      html_nodes(css = &quot;.price&quot;) %&gt;%
+      html_text()  %&gt;%
+      enframe(name = &quot;Price&quot;, value = &quot;.value&quot;)
+    
+    
+    candy_price_table &lt;- candy_price_table[,c(&quot;.value&quot;)]
+    names(candy_price_table)[1] &lt;- &quot;Price&quot;
+    
+    for (i in 1:length(candy_price_table$Price)) {
+      candy_price_table$Price[i] = str_extract(candy_price_table$Price[i], &quot;\\d+,\\d+ €&quot;)
+    }
+    
+    
+    if (!is_empty(empty)) {
+      candy_price_table&lt;- data.frame(Price = insert(candy_price_table$Price,empty,values=NA))
+    } 
+    
+    candy_title_table &lt;- candy_product_list_content %&gt;%
+      html_nodes(css = &quot;.title&quot;) %&gt;%
+      html_text(trim = TRUE) %&gt;%
+      enframe(name = &quot;Title&quot;, value = &quot;.title&quot;)
+    
+    candy_title_table &lt;- candy_title_table[,c(&quot;.title&quot;)]
+    names(candy_title_table)[1] &lt;- &quot;Title&quot;
+    
+    candy_product_list_pre &lt;- cbind(candy_title_table, candy_price_table)
+    
+    candy_product_list &lt;- rbind(candy_product_list,candy_product_list_pre)
+    
+  }
+}
+
+candy_product_list &lt;- unique(candy_product_list)
+rownames(candy_product_list) &lt;- NULL
+#write.xlsx(candy_product_list,&quot;produkt_preis_tabelle.xlsx&quot;)</code></pre>
 </div>
 
 
