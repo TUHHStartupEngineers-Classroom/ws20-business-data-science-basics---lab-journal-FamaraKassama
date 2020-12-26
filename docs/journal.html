@@ -414,7 +414,7 @@ div.tocify {
 <p>This is an <code>.Rmd</code> file. It is plain text with special features. Any time you write just like this, it will be compiled to normal text in the website. If you put a # in front of your text, it will create a top level-header.</p>
 <div id="my-first-post" class="section level1">
 <h1><span class="header-section-number">1</span> My first post</h1>
-<p>Last compiled: 2020-12-18</p>
+<p>Last compiled: 2020-12-26</p>
 <p>Notice that whatever you define as a top level header, automatically gets put into the table of contents bar on the left.</p>
 <div id="second-level-header" class="section level2">
 <h2><span class="header-section-number">1.1</span> Second level header</h2>
@@ -427,7 +427,7 @@ div.tocify {
 </div>
 <div id="my-second-post-note-the-order" class="section level1">
 <h1><span class="header-section-number">2</span> My second post (note the order)</h1>
-<p>Last compiled: 2020-12-18</p>
+<p>Last compiled: 2020-12-26</p>
 <p>I’m writing this tutorial going from the top down. And, this is how it will be printed. So, notice the second post is second in the list. If you want your most recent post to be at the top, then make a new post starting at the top. If you want the oldest first, do, then keep adding to the bottom</p>
 </div>
 <div id="adding-r-stuff" class="section level1">
@@ -765,7 +765,98 @@ for(k in 1:length(product_categories)) {
 
 candy_product_list &lt;- unique(candy_product_list)
 rownames(candy_product_list) &lt;- NULL
-#write.xlsx(candy_product_list,&quot;produkt_preis_tabelle.xlsx&quot;)</code></pre>
+#write.xlsx(candy_product_list,&quot;produkt_preis_tabelle.xlsx&quot;)
+
+
+# WEBSCRAPING ----
+
+# 1.0 LIBRARIES ----
+
+library(tidyverse) # Main Package - Loads dplyr, purrr, etc.
+library(rvest)     # HTML Hacking &amp; Web ScrapingS
+library(xopen)     # Quickly opening URLs
+library(jsonlite)  # converts JSON files to R objects
+library(glue)      # concatenate strings
+library(stringi)   # character string/text processing
+
+# 1.1 COLLECT PRODUCT FAMILIES ----
+
+url_home          &lt;- &quot;https://www.rosebikes.de&quot;
+
+# Read in the HTML for the entire webpage
+html_home         &lt;- read_html(url_home)
+
+# Web scrape the ids for the families
+bike_family_categories &lt;- html_home %&gt;%
+  
+  # Get the nodes for the families ...
+  html_nodes(css = &quot;.main-navigation-category-with-tiles__item&quot;) %&gt;%
+  html_text(trim = TRUE) %&gt;%
+  
+  # Convert vector to tibble
+  enframe(name = &quot;position&quot;, value = &quot;Category&quot;) #%&gt;%
+bike_family_categories &lt;- bike_family_categories[,c(&quot;Category&quot;)]
+
+
+# 1.2 COLLECT PRODUCT CATEGORIES ----
+
+## &quot;#js-navigationList-ROAD, #js-navigationList-MOUNTAIN, #js-navigationList-EBIKES, #js-navigationList-HYBRID-CITY, #js-navigationList-YOUNGHEROES&quot;
+
+# Extract the urls from the href attribute
+bike_price_table &lt;- data.frame(Category = character(), .price = character())
+
+for(k in 1:5) {#length(bike_family_categories$Category)) {
+  url_home          &lt;- paste(&quot;https://www.rosebikes.de/fahrräder/&quot;,bike_family_categories$Category[k],sep=&quot;&quot;)
+  
+  # Read in the HTML for the entire webpage
+  bike_category_tbl         &lt;- read_html(url_home)
+  bike_price_table_pre &lt;- bike_category_tbl %&gt;%
+    html_nodes(css = &quot;.catalog-category-bikes&quot;)%&gt;%
+    html_nodes(css = &quot;.row&quot;) %&gt;%
+    html_nodes(css = &quot;.catalog-category-bikes__price-title&quot;) %&gt;%
+    html_text(trim = TRUE) %&gt;%
+    enframe(name = &quot;Price&quot;, value = &quot;.value&quot;)
+  
+  bike_price_table_pre &lt;- bike_price_table_pre[,c(&quot;.value&quot;)]
+  
+  for (j in 1:length(bike_price_table_pre$.value)) {
+    if(bike_price_table_pre$.value[j] == &quot;&quot;) {
+      bike_price_table_pre$.value[j] = &quot;0&quot;
+    }
+  }
+  
+  categoryList &lt;- c(rep(bike_family_categories$Category[k],length(bike_price_table_pre$.value)))
+  bike_price_table_pre &lt;- cbind(categoryList, bike_price_table_pre)
+  bike_price_table &lt;- rbind(bike_price_table_pre,bike_price_table)
+  bike_price_table_pre &lt;- data.frame(Category = character(), .price = character())
+  }
+bike_price_table &lt;- unique(bike_price_table)
+
+bike_price_table</code></pre>
+<pre><code>##    categoryList        .value
+## 1       Fitness ab 1.299,00 €
+## 2       Fitness ab 1.099,00 €
+## 3       Fitness ab 2.149,00 €
+## 4    Cyclocross ab 1.849,00 €
+## 5        Gravel ab 1.799,00 €
+## 6        Gravel ab 2.599,00 €
+## 7        Gravel ab 4.599,00 €
+## 8       Rennrad ab 1.599,00 €
+## 9       Rennrad ab 1.199,00 €
+## 10      Rennrad ab 2.499,00 €
+## 11      Rennrad ab 2.099,00 €
+## 12      Rennrad ab 3.499,00 €
+## 13      Rennrad ab 2.699,00 €
+## 14      Rennrad ab 2.199,00 €
+## 15      Rennrad ab 3.899,00 €
+## 17          MTB ab 1.699,00 €
+## 18          MTB ab 1.999,00 €
+## 19          MTB ab 3.099,00 €
+## 20          MTB             0
+## 22          MTB ab 1.849,00 €
+## 23          MTB ab 2.599,00 €
+## 24          MTB ab 2.899,00 €
+## 25          MTB ab 2.149,00 €</code></pre>
 </div>
 
 
